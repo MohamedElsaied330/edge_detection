@@ -116,27 +116,24 @@ class PaperRectangle : View {
         return listOf(tl, tr, br, bl)
     }
 
-    override fun onDraw(canvas: Canvas?) {
+    override fun onDraw(canvas: Canvas) {  // Remove the ? - it should be non-nullable
     super.onDraw(canvas)
     
-    // Add null check for canvas
-    canvas?.let { c ->
-        rectPaint.color = Color.WHITE
-        rectPaint.strokeWidth = 6F
-        rectPaint.style = Paint.Style.STROKE
-        c.drawPath(path, rectPaint)  // Changed from canvas?.drawPath
+    rectPaint.color = Color.WHITE
+    rectPaint.strokeWidth = 6F
+    rectPaint.style = Paint.Style.STROKE
+    canvas.drawPath(path, rectPaint)  // No need for ?. since canvas is non-null
 
-        rectPaint.color = Color.argb(128, 255, 255, 255)
-        rectPaint.strokeWidth = 0F
-        rectPaint.style = Paint.Style.FILL
-        c.drawPath(path, rectPaint)  // Changed from canvas?.drawPath
+    rectPaint.color = Color.argb(128, 255, 255, 255)
+    rectPaint.strokeWidth = 0F
+    rectPaint.style = Paint.Style.FILL
+    canvas.drawPath(path, rectPaint)
 
-        if (cropMode) {
-            c.drawCircle(tl.x.toFloat(), tl.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
-            c.drawCircle(tr.x.toFloat(), tr.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
-            c.drawCircle(bl.x.toFloat(), bl.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
-            c.drawCircle(br.x.toFloat(), br.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
-        }
+    if (cropMode) {
+        canvas.drawCircle(tl.x.toFloat(), tl.y.toFloat(), 20F, circlePaint)
+        canvas.drawCircle(tr.x.toFloat(), tr.y.toFloat(), 20F, circlePaint)
+        canvas.drawCircle(bl.x.toFloat(), bl.y.toFloat(), 20F, circlePaint)
+        canvas.drawCircle(br.x.toFloat(), br.y.toFloat(), 20F, circlePaint)
     }
 }
     
