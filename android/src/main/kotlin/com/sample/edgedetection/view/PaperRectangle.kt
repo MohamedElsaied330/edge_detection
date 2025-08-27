@@ -117,8 +117,10 @@ class PaperRectangle : View {
     }
 
     override fun onDraw(canvas: Canvas?) {
-        super.onDraw(canvas)
-
+    super.onDraw(canvas)
+    
+    // Add null check for canvas
+    canvas?.let { c ->
         rectPaint.color = Color.WHITE
         rectPaint.strokeWidth = 6F
         rectPaint.style = Paint.Style.STROKE
@@ -136,6 +138,7 @@ class PaperRectangle : View {
             canvas?.drawCircle(br.x.toFloat(), br.y.toFloat(), 20F, circlePaint)
         }
     }
+}
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
 
