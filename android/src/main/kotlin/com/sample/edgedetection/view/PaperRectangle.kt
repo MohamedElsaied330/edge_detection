@@ -124,21 +124,22 @@ class PaperRectangle : View {
         rectPaint.color = Color.WHITE
         rectPaint.strokeWidth = 6F
         rectPaint.style = Paint.Style.STROKE
-        canvas?.drawPath(path, rectPaint)
+        c.drawPath(path, rectPaint)  // Changed from canvas?.drawPath
 
         rectPaint.color = Color.argb(128, 255, 255, 255)
         rectPaint.strokeWidth = 0F
         rectPaint.style = Paint.Style.FILL
-        canvas?.drawPath(path, rectPaint)
+        c.drawPath(path, rectPaint)  // Changed from canvas?.drawPath
 
         if (cropMode) {
-            canvas?.drawCircle(tl.x.toFloat(), tl.y.toFloat(), 20F, circlePaint)
-            canvas?.drawCircle(tr.x.toFloat(), tr.y.toFloat(), 20F, circlePaint)
-            canvas?.drawCircle(bl.x.toFloat(), bl.y.toFloat(), 20F, circlePaint)
-            canvas?.drawCircle(br.x.toFloat(), br.y.toFloat(), 20F, circlePaint)
+            c.drawCircle(tl.x.toFloat(), tl.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
+            c.drawCircle(tr.x.toFloat(), tr.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
+            c.drawCircle(bl.x.toFloat(), bl.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
+            c.drawCircle(br.x.toFloat(), br.y.toFloat(), 20F, circlePaint)      // Changed from canvas?.drawCircle
         }
     }
 }
+    
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
 
