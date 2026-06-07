@@ -155,49 +155,38 @@ class ScanActivity : BaseActivity(), IScanView.Proxy {
     @RequiresApi(Build.VERSION_CODES.P)
     fun onImageSelected(imageUri: Uri) {
         try {
-            val iStream: InputStream = contentResolver.openInputStream(imageUri)!!
-
-            val exif = ExifInterface(iStream)
+            // Read the EXIF orientation only. The ORIENTATION tag is widely
+            // present, but TAG_IMAGE_WIDTH / TAG_IMAGE_LENGTH frequently are NOT
+            // (screenshots, downloaded / re-saved images, messaging-app photos).
+            // The old code sized the decode buffer from those width/height tags,
+            // so when they were missing it built a 0x0 Mat → imdecode returned an
+            // empty image → edge detection failed / produced a blank result.
+            // That is exactly why gallery upload worked on iOS but broke on Android.
             var rotation = -1
-            val orientation: Int = exif.getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION,
-                    ExifInterface.ORIENTATION_UNDEFINED
-            )
-            when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> rotation = Core.ROTATE_90_CLOCKWISE
-                ExifInterface.ORIENTATION_ROTATE_180 -> rotation = Core.ROTATE_180
-                ExifInterface.ORIENTATION_ROTATE_270 -> rotation = Core.ROTATE_90_COUNTERCLOCKWISE
-            }
-            val mimeType = contentResolver.getType(imageUri)
-            var imageWidth: Double
-            var imageHeight: Double
-
-            if (mimeType?.startsWith("image/png") == true) {
-                val source = ImageDecoder.createSource(contentResolver, imageUri)
-                val drawable = ImageDecoder.decodeDrawable(source)
-
-                imageWidth = drawable.intrinsicWidth.toDouble()
-                imageHeight = drawable.intrinsicHeight.toDouble()
-
-                if (rotation == Core.ROTATE_90_CLOCKWISE || rotation == Core.ROTATE_90_COUNTERCLOCKWISE) {
-                    imageWidth = drawable.intrinsicHeight.toDouble()
-                    imageHeight = drawable.intrinsicWidth.toDouble()
-                }
-            } else {
-                imageWidth = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0).toDouble()
-                imageHeight = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0).toDouble()
-                if (rotation == Core.ROTATE_90_CLOCKWISE || rotation == Core.ROTATE_90_COUNTERCLOCKWISE) {
-                    imageWidth = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0).toDouble()
-                    imageHeight = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0).toDouble()
+            contentResolver.openInputStream(imageUri)?.use { iStream ->
+                val exif = ExifInterface(iStream)
+                when (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> rotation = Core.ROTATE_90_CLOCKWISE
+                    ExifInterface.ORIENTATION_ROTATE_180 -> rotation = Core.ROTATE_180
+                    ExifInterface.ORIENTATION_ROTATE_270 -> rotation = Core.ROTATE_90_COUNTERCLOCKWISE
                 }
             }
 
-            val inputData: ByteArray? = getBytes(contentResolver.openInputStream(imageUri)!!)
-            val mat = Mat(Size(imageWidth, imageHeight), CvType.CV_8U)
-            mat.put(0, 0, inputData)
-            val pic = Imgcodecs.imdecode(mat, Imgcodecs.IMREAD_UNCHANGED)
+            // Decode straight from the encoded bytes. Imgcodecs.imdecode reads the
+            // image header itself, so the source Mat must be a 1×N byte vector —
+            // its size must NOT depend on EXIF width/height. This handles JPEG,
+            // PNG, etc. uniformly and no longer fails when EXIF size tags are absent.
+            val inputData: ByteArray = contentResolver.openInputStream(imageUri)!!.use { getBytes(it) }
+                    ?: throw IOException("Unable to read selected image")
+            if (inputData.isEmpty()) throw IOException("Selected image is empty")
+
+            val buffer = Mat(1, inputData.size, CvType.CV_8U)
+            buffer.put(0, 0, inputData)
+            val pic = Imgcodecs.imdecode(buffer, Imgcodecs.IMREAD_COLOR)
+            buffer.release()
+
+            if (pic.empty()) throw IOException("Failed to decode selected image")
             if (rotation > -1) Core.rotate(pic, pic, rotation)
-            mat.release()
 
             mPresenter.detectEdge(pic)
         } catch (error: Exception) {
@@ -206,7 +195,6 @@ class ScanActivity : BaseActivity(), IScanView.Proxy {
             setResult(ERROR_CODE, intent)
             finish()
         }
-
     }
 
     @Throws(IOException::class)
