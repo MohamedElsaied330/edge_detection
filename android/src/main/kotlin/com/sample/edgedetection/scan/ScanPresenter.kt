@@ -277,23 +277,44 @@ class ScanPresenter constructor(
         Log.i(TAG, "on picture taken")
         Observable.just(p0)
             .subscribeOn(proxySchedule)
-            .subscribe {
-                val pictureSize = p1?.parameters?.pictureSize
-                Log.i(TAG, "picture size: " + pictureSize.toString())
-                val mat = Mat(
-                    Size(
-                        pictureSize?.width?.toDouble() ?: 1920.toDouble(),
-                        pictureSize?.height?.toDouble() ?: 1080.toDouble()
-                    ), CvType.CV_8U
-                )
-                mat.put(0, 0, p0)
-                val pic = Imgcodecs.imdecode(mat, Imgcodecs.IMREAD_UNCHANGED)
-                Core.rotate(pic, pic, Core.ROTATE_90_CLOCKWISE)
-                mat.release()
-                detectEdge(pic)
-                shutted = true
-                busy = false
-            }
+            .subscribe(
+                { data ->
+                    try {
+                        if (data == null || data.isEmpty()) {
+                            Log.e(TAG, "onPictureTaken: empty camera data")
+                            shutted = true
+                            busy = false
+                            return@subscribe
+                        }
+                        // OpenCV 4.11's imdecode REQUIRES a 1xN single-channel CV_8U
+                        // vector (assertion: buf.checkVector(1, CV_8U) > 0). The old
+                        // code built Mat(Size(width,height), CV_8U) — a 2D matrix —
+                        // which older OpenCV tolerated but 4.11 rejects, throwing a
+                        // cv::Exception that crashed the whole app. Build a 1xN buffer.
+                        val buffer = Mat(1, data.size, CvType.CV_8U)
+                        buffer.put(0, 0, data)
+                        val pic = Imgcodecs.imdecode(buffer, Imgcodecs.IMREAD_COLOR)
+                        buffer.release()
+                        if (pic.empty()) {
+                            Log.e(TAG, "onPictureTaken: imdecode produced empty image")
+                            shutted = true
+                            busy = false
+                            return@subscribe
+                        }
+                        Core.rotate(pic, pic, Core.ROTATE_90_CLOCKWISE)
+                        detectEdge(pic)
+                        shutted = true
+                        busy = false
+                    } catch (e: Exception) {
+                        // Never let a decode error reach RxJava's missing onError
+                        // handler — that is what crashed the app previously.
+                        Log.e(TAG, "onPictureTaken failed: $e", e)
+                        shutted = true
+                        busy = false
+                    }
+                },
+                { err -> Log.e(TAG, "onPictureTaken stream error: $err", err) }
+            )
     }
 
     override fun onPreviewFrame(p0: ByteArray?, p1: Camera?) {
